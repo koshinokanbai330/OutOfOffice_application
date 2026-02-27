@@ -1,161 +1,164 @@
-# OutOfOffice_application
+# Out of Office Add-in (Office.js / React / TypeScript)
 
-Outlook VSTO Add-in for Windows Classic Outlook (Microsoft 365 Apps) that lets you:
+An Outlook task-pane add-in that automates out-of-office workflows:
 
-- Create **all-day meeting requests** (Business Trip / Full Day Off / AM Half Day Off / PM Half Day Off) as Outlook appointments and send them.
-- Persist **To/Cc recipients** to `%USERPROFILE%\Documents\mailingList.txt` and reload them on next launch.
-- Configure **OOF (auto-reply)** for the absence period via Microsoft Graph API (delegated `MailboxSettings.ReadWrite`), including the user's Outlook HTML signature.
-- Automatically **download the travel-allowance Excel template** and fill in trip data (date, destination, departure/return times) when the leave type is Business Trip.
+- Creates calendar events (all-day, with attendees)
+- Sets automatic reply (OOF) via Microsoft Graph
+- Generates and fills a travel-allowance Excel file in OneDrive (Business Trip mode)
+- Persists mailing lists to OneDrive (App Folder)
 
-## Requirements
+---
 
-| Component | Version |
-|-----------|---------|
-| Windows Classic Outlook | Microsoft 365 Apps (Version 2502+) 64-bit |
-| Visual Studio | 2022 (Community/Professional/Enterprise) |
-| .NET Framework | 4.8 |
-| Visual Studio Workloads | *Office/SharePoint Development* |
+## Prerequisites
 
-## Build Instructions
+| Requirement | Version |
+|---|---|
+| Node.js | 18 or later |
+| npm | 9 or later |
+| Microsoft 365 subscription | Any plan with Exchange/Outlook |
+| Azure AD app registration | See below |
 
-1. **Clone** this repository.
+---
 
-2. **Open** `OutOfOfficeAddin.sln` in Visual Studio 2022.
+## Azure AD App Registration
 
-3. **Restore NuGet packages** – Visual Studio restores them automatically on first build,
-   or run:
-   ```
-   nuget restore OutOfOfficeAddin.sln
-   ```
+1. Open [portal.azure.com](https://portal.azure.com) → **Azure Active Directory** → **App registrations** → **New registration**.
+2. **Name**: `OutOfOffice Addin`  
+   **Supported account types**: *Accounts in this organizational directory only* (or multi-tenant as needed)  
+   **Redirect URI**: `Single-page application (SPA)` → `https://localhost:3000`
+3. After creation, note the **Application (client) ID** and **Directory (tenant) ID**.
+4. Under **API permissions**, add the following **Delegated** Microsoft Graph permissions and grant admin consent:
+   - `User.Read`
+   - `MailboxSettings.ReadWrite`
+   - `Calendars.ReadWrite`
+   - `Files.ReadWrite`
+   - `offline_access`
+   - `openid`
+   - `profile`
+5. Under **Expose an API**, set the Application ID URI to `api://localhost:3000/<CLIENT_ID>` and add a scope named `access_as_user`.
 
-4. **Configure Azure AD** (required for OOF auto-reply) – see [Graph Setup](#microsoft-graph-setup) below.
+---
 
-5. **Build** the solution (`Ctrl+Shift+B` or *Build → Build Solution*).
+## Environment Setup
 
-6. **Register the add-in** – on first build Visual Studio registers the add-in in the
-   current user's registry (`HKCU\...\Outlook\Addins\OutOfOfficeAddin`).
-   If you want to deploy to another machine, use the ClickOnce publish output from
-   *Build → Publish*.
-
-## Microsoft Graph Setup
-
-The OOF (auto-reply) feature requires a delegated Microsoft Graph token with the
-`MailboxSettings.ReadWrite` scope.
-
-### Register an app in Azure Active Directory
-
-1. Go to **Azure Portal** → **Azure Active Directory** → **App registrations** → **New registration**.
-2. Give it a name (e.g., `OutOfOffice VSTO Addin`).
-3. Set **Supported account types** to *Accounts in this organizational directory only* (or your
-   appropriate choice).
-4. Set **Redirect URI** → *Public client/native (mobile & desktop)* → `http://localhost`.
-5. Click **Register**.
-6. Note the **Application (client) ID** and **Directory (tenant) ID**.
-7. Under **API permissions** → **Add a permission** → **Microsoft Graph** → **Delegated** →
-   search for `MailboxSettings.ReadWrite` → Add. Grant admin consent if required.
-
-### Configure `appsettings.json`
-
-Edit `OutOfOfficeAddin/appsettings.json` and replace the placeholder values:
-
-```json
-{
-  "AzureAd": {
-    "ClientId": "<paste Application (client) ID>",
-    "TenantId": "<paste Directory (tenant) ID>",
-    "RedirectUri": "http://localhost"
-  }
-}
+```bash
+cd office-addin
+cp .env.example .env
 ```
 
-> **Note**: Never commit real secrets to source control.  
-> The `appsettings.json` file is included only as a template; add it to `.gitignore` after
-> populating it with real values.
+Edit `.env`:
 
-## Usage
+```
+REACT_APP_CLIENT_ID=<your-application-client-id>
+REACT_APP_TENANT_ID=<your-directory-tenant-id>
+```
 
-After building and launching Outlook you will see an **Out of Office** task pane on the right.
+---
 
-### Fields
+## Build & Run
+
+```bash
+cd office-addin
+npm install
+npm run build        # production build → dist/
+npm start            # dev server at https://localhost:3000 (self-signed cert)
+```
+
+> **Note:** The dev server uses a self-signed HTTPS certificate. Trust it in your browser the first time.
+
+---
+
+## Excel Template
+
+Place (or replace) `office-addin/assets/template.xlsx` with your actual travel-allowance template.  
+The file **must** contain two worksheets:
+
+- `日帰り One-Day` — for day-trip entries
+- `宿泊 Overnight` — for multi-day overnight entries
+
+Each sheet should have a header row containing `日付` in the first cell of the date column. The add-in writes rows starting immediately below that header.
+
+---
+
+## Sideloading the Add-in
+
+### Outlook on Windows
+
+1. Build or start the dev server so `https://localhost:3000/taskpane.html` is reachable.
+2. Open Outlook → **File** → **Manage Add-ins** → **My add-ins** → **Add a custom add-in** → **Add from File…**
+3. Select `office-addin/manifest.xml`.
+
+### Outlook on Mac
+
+1. Ensure the dev server is running.
+2. Open Outlook → **Tools** → **Add-ins…** → **+** (bottom-left) → **Add from file…**
+3. Select `office-addin/manifest.xml`.
+
+### Outlook on the Web (OWA)
+
+1. Open [outlook.office.com](https://outlook.office.com) → **Settings** → **View all Outlook settings** → **Mail** → **Customize actions**.
+2. Or navigate to: `https://outlook.office.com/mail/inclientstore`.
+3. Click **+** → **Add from file** and upload `manifest.xml`.
+
+---
+
+## Centralized Admin Deployment
+
+To deploy to all users in your Microsoft 365 tenant:
+
+1. Open [admin.microsoft.com](https://admin.microsoft.com) → **Settings** → **Integrated apps** → **Upload custom apps**.
+2. Choose **Office Add-in** and upload `manifest.xml`.
+3. Assign to users or groups and click **Deploy**.
+
+---
+
+## Usage Guide
+
+Open any email or appointment in Outlook and click **Out of Office** in the ribbon.
 
 | Field | Description |
-|-------|-------------|
-| **Type** | Business Trip / Full Day Off / AM Half Day Off / PM Half Day Off |
-| **Start date / End date** | Date range of absence |
-| **Subject (auto)** | Auto-generated: `{FamilyName} BT`, `{FamilyName} OFF`, etc. (read-only) |
-| **Location** | Defaults to *Home* for Off types, empty for Business Trip |
-| **To / Cc** | Semicolon-separated addresses; or use **Add from Address Book** |
-| **Set automatic replies** | Enables OOF auto-reply via Graph (default ON) |
-| **Internal / External message preview** | Read-only preview of the auto-reply text |
-| **Create and fill allowance Excel** | *(Business Trip only)* Downloads template and fills data |
-| **Excel save folder** | *(Business Trip only)* Folder where the Excel file is saved |
+|---|---|
+| **Type** | Business Trip, Full Day Off, AM Half Day Off, PM Half Day Off |
+| **Start / End date** | Inclusive date range for the calendar event and OOF period |
+| **Subject (auto)** | Auto-generated from your display name surname + type suffix |
+| **Location** | Pre-filled with "Home" for off-type; blank for Business Trip |
+| **To / Cc** | Semicolon-separated recipient emails; saved to OneDrive for reuse |
+| **Set automatic replies** | Toggles OOF scheduling via Graph API |
+| **Internal / External preview** | Live preview of the generated OOF HTML messages |
+| **Signature** | Optional HTML appended to both OOF messages |
+| **Destination** | (Business Trip only) Written into the Excel allowance rows |
+| **Create draft** | Creates calendar event without sending invites or setting OOF |
+| **Send** | Creates event with invites, sets OOF, and (if BT) creates Excel |
+| **Cancel** | Resets all fields to defaults |
 
-### Buttons
-
-| Button | Description |
-|--------|-------------|
-| **Create draft** | Saves the meeting as a draft (To not required) |
-| **Send** | Sends the meeting, sets OOF, and optionally creates Excel (To required; folder required when Excel is enabled) |
-| **Cancel** | Resets the form |
-
-### What happens on Send
-
-1. An all-day Outlook meeting is created (Show as: Free, Reminder: Off) and sent to To/Cc recipients.
-2. To/Cc are saved to `%USERPROFILE%\Documents\mailingList.txt`.
-3. If **Set automatic replies** is checked, OOF is configured via Graph for the selected period.
-   - Back-date shown in messages = **End date + 1 day**.
-   - The user's Outlook HTML signature (from `%APPDATA%\Microsoft\Signatures\`) is appended.
-4. If **Business Trip** and **Create and fill allowance Excel** is checked:
-   - Template downloaded from the Bosch Confluence URL.
-   - Filled with dates, destination, departure/arrival times.
-   - Saved as `BT-Allowance-{FamilyName}-{yyyyMMdd}.xlsx` in the chosen folder.
-5. The status log at the bottom shows what completed and any errors.
-
-If OOF or Excel steps fail after the meeting was sent, a warning is displayed and the log
-shows which steps succeeded and which failed.
-
-## Subject Rules
-
-| Leave type | Subject |
-|------------|---------|
-| Business Trip | `{FamilyName} BT` |
-| Full Day Off | `{FamilyName} OFF` |
-| AM Half Day Off | `{FamilyName} AM OFF` |
-| PM Half Day Off | `{FamilyName} PM OFF` |
-
-## Excel Template Sheets
-
-| Trip duration | Sheets filled |
-|---------------|---------------|
-| 1 day | `日帰り One-Day` only |
-| 2+ days | `日帰り One-Day` **and** `宿泊 Overnight` |
-
-Times written: Departure 07:00 · Start 09:00 · Finish 18:00 · Return 21:00.
+---
 
 ## Project Structure
 
 ```
-OutOfOfficeAddin.sln
-OutOfOfficeAddin/
-  OutOfOfficeAddin.csproj        – VSTO project (net48)
-  ThisAddIn.cs / .Designer.cs    – Add-in entry point
-  appsettings.json               – Azure AD config template
-  Models/
-    LeaveType.cs                 – Leave type enum
-    OutOfOfficeRequest.cs        – Request data model
-  Services/
-    SubjectHelper.cs             – Meeting subject / default location
-    MailingListService.cs        – Persist To/Cc to mailingList.txt
-    SignatureService.cs          – Read Outlook HTML signature
-    GraphAuthService.cs          – MSAL authentication helper
-    OofService.cs                – Set OOF via Microsoft Graph
-    MeetingService.cs            – Create/send Outlook meeting
-    ExcelService.cs              – Download + fill allowance Excel
-  UI/
-    RelayCommand.cs              – ICommand helper
-    TaskPaneViewModel.cs         – WPF ViewModel
-    TaskPaneView.xaml / .cs      – WPF UserControl (task pane UI)
-    TaskPaneHost.cs              – WinForms wrapper for VSTO task pane
-  Properties/
-    AssemblyInfo.cs
+office-addin/
+├── assets/
+│   └── template.xlsx          # Excel template (replace with real file)
+├── src/
+│   ├── index.html             # HTML entry point
+│   ├── index.tsx              # Office.onReady bootstrap
+│   └── taskpane/
+│       ├── App.tsx            # Root React component
+│       ├── components/
+│       │   ├── TaskPane.tsx   # Main UI component
+│       │   └── StatusLog.tsx  # Operation log display
+│       ├── hooks/
+│       │   ├── useAuth.ts     # MS Graph profile fetch
+│       │   └── useMailingList.ts
+│       └── services/
+│           ├── authService.ts       # Office SSO + MSAL fallback
+│           ├── calendarService.ts   # Graph calendar events
+│           ├── excelService.ts      # OneDrive Excel template copy & fill
+│           ├── mailingListService.ts
+│           ├── oofService.ts        # Graph mailboxSettings OOF
+│           └── subjectHelper.ts    # Date & subject utilities
+├── manifest.xml               # Office Add-in manifest
+├── package.json
+├── tsconfig.json
+└── webpack.config.js
 ```
