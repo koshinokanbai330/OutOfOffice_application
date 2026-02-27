@@ -95,10 +95,17 @@ async function pollCopyOperation(token: string, location: string): Promise<strin
   throw new Error("Copy operation timed out");
 }
 
+function normalizeToMidnight(d: Date): Date {
+  const n = new Date(d);
+  n.setHours(0, 0, 0, 0);
+  return n;
+}
+
 function getDates(startDate: Date, endDate: Date): Date[] {
   const dates: Date[] = [];
-  let cur = new Date(startDate);
-  while (cur <= endDate) {
+  let cur = normalizeToMidnight(startDate);
+  const end = normalizeToMidnight(endDate);
+  while (cur.getTime() <= end.getTime()) {
     dates.push(new Date(cur));
     cur = addDays(cur, 1);
   }

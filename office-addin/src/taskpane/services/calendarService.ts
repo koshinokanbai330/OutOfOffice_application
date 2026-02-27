@@ -62,4 +62,3 @@ export async function createCalendarEvent(req: CalendarEventRequest): Promise<{ 
   return resp.json();
 }
 
-

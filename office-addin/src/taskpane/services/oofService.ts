@@ -37,6 +37,10 @@ export function buildOofMessages(endDate: Date, signature: string) {
   };
 }
 
+function toISODateTimeStr(date: Date): string {
+  return `${toISODateStr(date)}T00:00:00`;
+}
+
 export async function setOof(settings: OofSettings): Promise<void> {
   const token = await getAccessToken();
   const scheduledEndDate = addDays(settings.endDate, 1);
@@ -45,11 +49,11 @@ export async function setOof(settings: OofSettings): Promise<void> {
     automaticRepliesSetting: {
       status: "scheduled",
       scheduledStartDateTime: {
-        dateTime: `${toISODateStr(settings.startDate)}T00:00:00`,
+        dateTime: toISODateTimeStr(settings.startDate),
         timeZone: "UTC",
       },
       scheduledEndDateTime: {
-        dateTime: `${toISODateStr(scheduledEndDate)}T00:00:00`,
+        dateTime: toISODateTimeStr(scheduledEndDate),
         timeZone: "UTC",
       },
       internalReplyMessage: settings.internalMessage,

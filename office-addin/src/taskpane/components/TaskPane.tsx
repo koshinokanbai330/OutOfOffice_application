@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { LeaveType, LEAVE_TYPE_LABELS, buildSubject, getDefaultLocation, addDays } from "../services/subjectHelper";
+import { LeaveType, LEAVE_TYPE_LABELS, buildSubject, getDefaultLocation } from "../services/subjectHelper";
 import { createCalendarEvent } from "../services/calendarService";
 import { setOof, buildOofMessages } from "../services/oofService";
 import { saveMailingList, loadMailingList } from "../services/mailingListService";
@@ -87,6 +87,11 @@ const TaskPane: React.FC = () => {
     setLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`]);
   }, []);
 
+  const handleStartDateChange = (value: string) => {
+    setStartDate(value);
+    if (value > endDate) setEndDate(value);
+  };
+
   const handleCancel = () => {
     setLeaveType("BT");
     setStartDate(todayStr);
@@ -103,7 +108,7 @@ const TaskPane: React.FC = () => {
 
   const runSend = async (asDraft: boolean) => {
     if (!asDraft && !toField.trim()) {
-      setLogs(["ERROR: To field is required for sending."]);
+      log("ERROR: To field is required for sending.");
       return;
     }
     setBusy(true);
@@ -216,7 +221,7 @@ const TaskPane: React.FC = () => {
         <div style={{ flex: 1 }}>
           <label style={LABEL_STYLE}>Start date</label>
           <input type="date" style={FIELD_STYLE} value={startDate}
-            onChange={(e) => { setStartDate(e.target.value); if (e.target.value > endDate) setEndDate(e.target.value); }}
+            onChange={(e) => handleStartDateChange(e.target.value)}
             disabled={busy} />
         </div>
         <div style={{ flex: 1 }}>
