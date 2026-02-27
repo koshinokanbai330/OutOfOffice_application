@@ -1,0 +1,21 @@
+# Build output
+bin/
+obj/
+
+# Visual Studio user files
+*.user
+*.suo
+.vs/
+
+# NuGet packages (restore from packages.lock.json)
+*.nupkg
+
+# Certificates and secrets
+*.pfx
+*.snk
+appsettings.local.json
+
+# Publish / ClickOnce output
+publish/
+*.application
+*.manifest
